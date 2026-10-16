@@ -17,13 +17,12 @@ namespace SupportDesk.Infrastructure.Queries;
 public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQueries
 {
     /// <remarks>
-    /// Sorts and pages every ticket. The filter values bound into <paramref name="query"/>
-    /// (search, status, priority, category, customer, agent, unassigned-only) are not applied
-    /// yet: server-side filtering is still to be built.
+    /// Filters first, then counts, sorts and pages, so totalCount and the pager describe the
+    /// filtered set. Every step is translated to SQL.
     /// </remarks>
     public async Task<PagedResult<TicketListItemDto>> GetPagedAsync(TicketQuery query, CancellationToken ct)
     {
-        var tickets = TicketsWithLabels();
+        var tickets = ApplyFilters(TicketsWithLabels(), query);
 
         var totalCount = await tickets.CountAsync(ct);
 
@@ -51,6 +50,55 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
             .ToListAsync(ct);
 
         return new PagedResult<TicketListItemDto>(items, query.Page, query.PageSize, totalCount);
+    }
+
+    /// <summary>
+    /// One block per filter; every supplied filter combines with AND. Adding a filter
+    /// (such as Task 2's slaStatus) means adding one more block here.
+    /// </summary>
+    private static IQueryable<TicketWithLabels> ApplyFilters(
+        IQueryable<TicketWithLabels> source, TicketQuery query)
+    {
+        if (query.Status is { } status)
+        {
+            source = source.Where(x => x.Ticket.Status == status);
+        }
+
+        if (query.Priority is { } priority)
+        {
+            source = source.Where(x => x.Ticket.Priority == priority);
+        }
+
+        if (query.CategoryId is { } categoryId)
+        {
+            source = source.Where(x => x.Ticket.CategoryId == categoryId);
+        }
+
+        if (query.CustomerId is { } customerId)
+        {
+            source = source.Where(x => x.Ticket.CustomerId == customerId);
+        }
+
+        if (query.AssignedAgentId is { } agentId)
+        {
+            source = source.Where(x => x.Ticket.AssignedAgentId == agentId);
+        }
+
+        if (query.UnassignedOnly)
+        {
+            source = source.Where(x => x.Ticket.AssignedAgentId == null);
+        }
+
+        var search = query.Search?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            source = source.Where(x =>
+                x.Ticket.Title.Contains(search)
+                || x.Ticket.Reference.Contains(search)
+                || x.Customer.Name.Contains(search));
+        }
+
+        return source;
     }
 
     public Task<TicketDetailDto?> GetDetailAsync(int id, CancellationToken ct)

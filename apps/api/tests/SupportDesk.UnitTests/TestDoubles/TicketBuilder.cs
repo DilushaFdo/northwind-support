@@ -10,6 +10,9 @@ namespace SupportDesk.UnitTests.TestDoubles;
 public sealed class TicketBuilder
 {
     private string _reference = "TCK-0001";
+    private string _title = "Something is not working";
+    private int _customerId = 1;
+    private int _categoryId = 1;
     private TicketPriority _priority = TicketPriority.Medium;
     private TicketStatus _status = TicketStatus.New;
     private int? _assignedAgentId;
@@ -18,6 +21,24 @@ public sealed class TicketBuilder
     public TicketBuilder WithReference(string reference)
     {
         _reference = reference;
+        return this;
+    }
+
+    public TicketBuilder WithTitle(string title)
+    {
+        _title = title;
+        return this;
+    }
+
+    public TicketBuilder ForCustomer(int customerId)
+    {
+        _customerId = customerId;
+        return this;
+    }
+
+    public TicketBuilder InCategory(int categoryId)
+    {
+        _categoryId = categoryId;
         return this;
     }
 
@@ -50,10 +71,10 @@ public sealed class TicketBuilder
     {
         var ticket = Ticket.Raise(
             _reference,
-            "Something is not working",
+            _title,
             "A description long enough to be realistic.",
-            customerId: 1,
-            categoryId: 1,
+            _customerId,
+            _categoryId,
             _priority,
             FixedClock.DefaultNow);
 
