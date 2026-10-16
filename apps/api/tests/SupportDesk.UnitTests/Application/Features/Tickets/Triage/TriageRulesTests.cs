@@ -38,22 +38,9 @@ public class PriorityResolverTests
 
 public class SlaCalculatorTests
 {
-    private static SlaCalculator Calculator(Action<SlaOptions>? configure = null)
+        private static SlaCalculator Calculator(Action<SlaOptions>? configure = null)
     {
-        var options = new SlaOptions
-        {
-            BaseWindowHours = new()
-            {
-                [TicketPriority.Low] = 72,
-                [TicketPriority.Medium] = 24,
-                [TicketPriority.High] = 8,
-                [TicketPriority.Critical] = 4,
-            },
-            PremiumCustomerMultiplier = 0.5,
-            MinimumWindowHours = 1,
-            AtRiskThresholdPercent = 25,
-        };
-
+        var options = TestSlaOptions.Create();
         configure?.Invoke(options);
         return new SlaCalculator(options);
     }
