@@ -38,7 +38,7 @@ public class PriorityResolverTests
 
 public class SlaCalculatorTests
 {
-        private static SlaCalculator Calculator(Action<SlaOptions>? configure = null)
+    private static SlaCalculator Calculator(Action<SlaOptions>? configure = null)
     {
         var options = TestSlaOptions.Create();
         configure?.Invoke(options);

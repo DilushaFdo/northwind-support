@@ -111,4 +111,14 @@ public sealed class Ticket : AggregateRoot
         AssignedAgentId = agentId;
         UpdatedAtUtc = nowUtc;
     }
+
+    /// <summary>
+    /// Records the outcome of triage on a freshly raised ticket: when it is due and, if anyone
+    /// was eligible, who owns it. The status stays as it is.
+    /// </summary>
+    public void ApplyTriage(DateTime dueAtUtc, int? assignedAgentId, DateTime nowUtc)
+    {
+        DueAtUtc = dueAtUtc;
+        AssignTo(assignedAgentId, nowUtc);
+    }
 }

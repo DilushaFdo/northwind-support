@@ -1,5 +1,8 @@
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
 using SupportDesk.Application;
+using SupportDesk.Application.Features.Tickets.Triage;
+using SupportDesk.Domain.Aggregates.Tickets;
 using SupportDesk.Infrastructure;
 using SupportDesk.Presentation.Extensions;
 using SupportDesk.Presentation.Filters;
@@ -29,6 +32,16 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services
+    .AddOptions<SlaOptions>()
+    .Bind(builder.Configuration.GetSection(SlaOptions.SectionName))
+    .Validate(
+        o => Enum.GetValues<TicketPriority>().All(p => o.BaseWindowHours.ContainsKey(p)),
+        "Every ticket priority needs a base window in the Sla section.")
+    .ValidateOnStart();
+
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<SlaOptions>>().Value);
 
 var app = builder.Build();
 

@@ -5,6 +5,7 @@ using SupportDesk.Application.Features.Tickets.Commands.AssignTicket;
 using SupportDesk.Application.Features.Tickets.Commands.ChangeTicketStatus;
 using SupportDesk.Application.Features.Tickets.Commands.RaiseTicket;
 using SupportDesk.Application.Features.Tickets.Queries.GetTicket;
+using SupportDesk.Application.Features.Tickets.Triage;
 using SupportDesk.Domain.Aggregates.Agents;
 using SupportDesk.Domain.Aggregates.Customers;
 using SupportDesk.Domain.Aggregates.Tickets;
@@ -34,6 +35,15 @@ internal sealed class TicketCommandTestContext
             .Callback<Ticket, CancellationToken>((ticket, _) => AddedTicket = ticket)
             .Returns(Task.CompletedTask);
 
+        TriageQueries.Setup(q => q.GetCustomerTierAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CustomerTier.Standard);
+
+        TriageQueries.Setup(q => q.GetCategoryAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CategoryTriageInfo(1, "General", false, false));
+
+        TriageQueries.Setup(q => q.GetAgentCandidatesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<AgentCandidate>());
+
         // Every command returns the ticket as re-read once its change has been saved.
         TicketQueries.Setup(q => q.GetDetailAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TicketDetailDto
@@ -47,7 +57,7 @@ internal sealed class TicketCommandTestContext
         var getTicket = new GetTicketQueryHandler(TicketQueries.Object);
 
         RaiseTicket = new RaiseTicketCommandHandler(
-            Tickets.Object, Customers.Object, Categories.Object, UnitOfWork.Object, Clock, getTicket,
+            Tickets.Object, TriageQueries.Object, TriageService, UnitOfWork.Object, Clock, getTicket,
             NullLogger<RaiseTicketCommandHandler>.Instance);
 
         ChangeTicketStatus = new ChangeTicketStatusCommandHandler(Tickets.Object, UnitOfWork.Object, Clock, getTicket);
@@ -68,6 +78,10 @@ internal sealed class TicketCommandTestContext
     public Mock<IUnitOfWork> UnitOfWork { get; } = new();
 
     public Mock<ITicketQueries> TicketQueries { get; } = new();
+
+    public Mock<ITriageQueries> TriageQueries { get; } = new();
+
+    public TicketTriageService TriageService { get; } = new(new SlaCalculator(TestSlaOptions.Create()));
 
     public FixedClock Clock { get; } = new();
 

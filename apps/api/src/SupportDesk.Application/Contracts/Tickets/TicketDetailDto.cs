@@ -35,4 +35,7 @@ public sealed class TicketDetailDto
 
     /// <summary>Derived from the dates above; never stored.</summary>
     public SlaStatus SlaStatus { get; set; }
+
+    /// <summary>The reasons behind the priority, due date and owner. Only set when the ticket is raised.</summary>
+    public TicketTriageDto? Triage { get; set; }
 }
