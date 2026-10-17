@@ -45,6 +45,12 @@ public sealed class Ticket : AggregateRoot
 
     public DateTime? ResolvedAtUtc { get; private set; }
 
+    /// <summary>
+    /// When the current SLA window started: when triage applied, or at the latest escalation.
+    /// Null means the window started when the ticket was created.
+    /// </summary>
+    public DateTime? SlaStartedAtUtc { get; private set; }
+
     /// <summary>True while the ticket still needs work from an agent.</summary>
     public bool IsOpen => Status is not (TicketStatus.Resolved or TicketStatus.Closed);
 
@@ -119,6 +125,56 @@ public sealed class Ticket : AggregateRoot
     public void ApplyTriage(DateTime dueAtUtc, int? assignedAgentId, DateTime nowUtc)
     {
         DueAtUtc = dueAtUtc;
+        SlaStartedAtUtc = nowUtc;
         AssignTo(assignedAgentId, nowUtc);
+    }
+
+    /// <summary>
+    /// The priority this ticket would have after an escalation: one level up.
+    /// </summary>
+    /// <exception cref="BusinessRuleViolationException">
+    /// The ticket is Resolved or Closed, or is already Critical.
+    /// </exception>
+    public TicketPriority PriorityAfterEscalation()
+    {
+        if (!IsOpen)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} is {Status} and cannot be escalated.");
+        }
+
+        if (Priority == TicketPriority.Critical)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} is already Critical and cannot be escalated further.");
+        }
+
+        // Priorities are ordered, lowest urgency first, and are never renumbered.
+        return Priority + 1;
+    }
+
+    /// <summary>
+    /// Raises the priority one level and records who did it and why. The caller has already
+    /// worked out the new due date and owner, because it can see customer tiers and agents.
+    /// </summary>
+    /// <returns>The history row to store with the change.</returns>
+    /// <exception cref="BusinessRuleViolationException">The ticket cannot be escalated.</exception>
+    public TicketEscalation Escalate(
+        string reason, string escalatedBy, DateTime dueAtUtc, int? assignedAgentId, DateTime nowUtc)
+    {
+        var newPriority = PriorityAfterEscalation();
+
+        // Built first: a bad reason or actor throws before anything on the ticket changes.
+        var record = TicketEscalation.Record(
+            Id, Priority, newPriority, AssignedAgentId, assignedAgentId,
+            DueAtUtc, dueAtUtc, reason, escalatedBy, nowUtc);
+
+        Priority = newPriority;
+        AssignedAgentId = assignedAgentId;
+        DueAtUtc = dueAtUtc;
+        SlaStartedAtUtc = nowUtc;
+        UpdatedAtUtc = nowUtc;
+
+        return record;
     }
 }
